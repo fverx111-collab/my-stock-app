@@ -1,23 +1,53 @@
-// Sample JavaScript code to fetch and display stock market data
+// app.js
 
-const stocks = [
-    { symbol: 'AAPL', name: 'Apple Inc.', price: 150.00, changePercentage: 1.5 },
-    { symbol: 'GOOGL', name: 'Alphabet Inc.', price: 2800.00, changePercentage: -0.3 },
-    { symbol: 'AMZN', name: 'Amazon.com Inc.', price: 3300.00, changePercentage: 2.0 },
-    { symbol: 'TSLA', name: 'Tesla Inc.', price: 700.00, changePercentage: 0.5 }
-];
-
-function displayStocks() {
-    const appSection = document.getElementById('app');
-    appSection.innerHTML = ''; // Clear previous content
-
-    stocks.forEach(stock => {
-        const stockDiv = document.createElement('div');
-        stockDiv.innerHTML = `<strong>${stock.symbol} - ${stock.name}</strong><br>
-            Price: $${stock.price.toFixed(2)}<br>
-            Change: ${stock.changePercentage}%`;
-        appSection.appendChild(stockDiv);
-    });
+// Function to fetch FlowTrack dashboard data
+async function fetchDashboardData() {
+    try {
+        const response = await fetch('https://api.flowtrack.com/dashboard');
+        const data = await response.json();
+        renderDashboard(data);
+    } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+    }
 }
 
-displayStocks();
+// Function to render the dashboard
+function renderDashboard(data) {
+    const globalMarketIndicators = document.getElementById('global-market-indicators');
+
+    // Render DXY tracking
+    const dxyValue = data.globalIndicators.dxy;
+    globalMarketIndicators.innerHTML += `<div>DXY: ${dxyValue}</div>`;
+
+    // Render sector fund flows
+    const sectorFlows = data.sectorFundFlows;
+    const flowsContainer = document.getElementById('sector-flows');
+    flowsContainer.innerHTML = '';
+
+    sectorFlows.forEach(flow => {
+        const barWidth = flow.amount * 10; // Change multiplier for scaling
+        const barColor = flow.amount > 0 ? 'green' : 'red';
+        const bar = `<div style='width:${barWidth}px; background-color:${barColor};'>${flow.name}: ${flow.amount}</div>`;
+        flowsContainer.innerHTML += bar;
+    });
+
+    // Update timestamp
+    const timestamp = document.getElementById('timestamp');
+    timestamp.innerHTML = `Last updated: ${new Date().toUTCString()}`;
+}
+
+// Function to refresh the dashboard
+function refreshDashboard() {
+    fetchDashboardData();
+}
+
+// Set an interval to refresh the dashboard every minute
+setInterval(refreshDashboard, 60000);
+
+// Initial fetch
+fetchDashboardData();
+
+// Add timestamp element
+const timestampElement = document.createElement('div');
+timestampElement.id = 'timestamp';
+document.body.appendChild(timestampElement);
