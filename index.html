@@ -45,7 +45,54 @@
             document.getElementById('market-indices').innerHTML = JSON.stringify(data.marketIndices);
             document.getElementById('watched-stocks').innerHTML = JSON.stringify(data.watchedStocks);
         }
-        fetchData();
+        async function fetchData() {
+    try {
+        const allSymbols = [...SYMBOLS.macro, ...SYMBOLS.indices, ...SYMBOLS.stocks].join(',');
+        
+        // 使用更強大的公共代理 corsproxy.io
+        // 目標改用 query2 版本的接口，這在 2026 年通常更穩定
+        const targetUrl = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${allSymbols}`;
+        const finalUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+
+        const res = await fetch(finalUrl);
+        
+        if (!res.ok) throw new Error('網路請求失敗');
+        
+        const json = await res.json();
+        const data = json.quoteResponse.result;
+
+        if (data && data.length > 0) {
+            renderUI(data);
+            document.getElementById('timestamp').innerHTML = `最後更新：${new Date().toLocaleString()}`;
+        } else {
+            throw new Error('找不到數據內容');
+        }
+    } catch (error) {
+        console.error('抓取失敗:', error);
+        document.getElementById('timestamp').innerHTML = '數據獲取中，請稍候... (若持續顯示請重整)';
+        
+        // 備用方案：如果第一代理失敗，3秒後嘗試第二代理
+        setTimeout(fetchDataWithBackup, 3000);
+    }
+}
+
+// 備用抓取邏輯 (增加穩定性)
+async function fetchDataWithBackup() {
+    const allSymbols = [...SYMBOLS.macro, ...SYMBOLS.indices, ...SYMBOLS.stocks].join(',');
+    const targetUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${allSymbols}`;
+    const backupUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+
+    try {
+        const res = await fetch(backupUrl);
+        const json = await res.json();
+        const actualData = JSON.parse(json.contents);
+        renderUI(actualData.quoteResponse.result);
+        document.getElementById('timestamp').innerHTML = `最後更新：${new Date().toLocaleString()} (備用路徑)`;
+    } catch (e) {
+        document.getElementById('timestamp').innerHTML = '目前連線不穩定，請檢查網路或稍後再試';
+    }
+}
+
         setInterval(fetchData, 60000); // Refresh every 60 seconds
     </script>
 </body>
