@@ -2,137 +2,114 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <title>FLOWTRACK | 實時金融監控</title>
+    <title>FLOWTRACK | 金融監控</title>
     <style>
-        body { background-color: #0f172a; color: #cbd5e1; }
-        .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+        body { background-color: #0f172a; color: #cbd5e1; font-family: sans-serif; }
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
         .price-up { color: #10b981; }
         .price-down { color: #f43f5e; }
-        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
     </style>
 </head>
 <body>
-    <header class="bg-slate-800 p-4 border-b border-slate-700">
+    <header class="bg-slate-800 p-4 border-b border-slate-700 sticky top-0 z-50">
         <nav class="flex justify-between items-center max-w-4xl mx-auto">
             <h1 class="text-xl font-black tracking-tighter">FLOW<span class="text-green-500">TRACK</span></h1>
-            <div id="timestamp" class="text-xs text-slate-500">初始化中...</div>
+            <div id="timestamp" class="text-[10px] text-slate-500">初始化中...</div>
         </nav>
     </header>
 
     <main class="p-4 max-w-4xl mx-auto">
         <section class="mb-6">
-            <h2 class="text-sm font-bold text-slate-400 uppercase mb-3"><i class="fas fa-globe mr-2"></i> Macro Liquidity</h2>
-            <div id="macro-liquidity">正在載入數據...</div>
+            <h2 class="text-xs font-bold text-slate-500 uppercase mb-3"><i class="fas fa-globe mr-1"></i> Macro Liquidity</h2>
+            <div id="macro-liquidity" class="card space-y-2">載入數據中...</div>
         </section>
 
         <section class="mb-6">
-            <h2 class="text-sm font-bold text-slate-400 uppercase mb-3"><i class="fas fa-chart-line mr-2"></i> Market Indices</h2>
-            <div id="market-indices">正在載入數據...</div>
+            <h2 class="text-xs font-bold text-slate-500 uppercase mb-3"><i class="fas fa-chart-line mr-1"></i> Market Indices</h2>
+            <div id="market-indices" class="card space-y-2">載入數據中...</div>
         </section>
 
         <section class="mb-6">
-            <h2 class="text-sm font-bold text-slate-400 uppercase mb-3"><i class="fas fa-star mr-2"></i> Watched Stocks</h2>
+            <h2 class="text-xs font-bold text-slate-500 uppercase mb-3"><i class="fas fa-star mr-1"></i> Watched Stocks</h2>
             <div id="watched-stocks" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                正在載入數據...
+                載入數據中...
             </div>
         </section>
     </main>
 
     <script>
-        // 1. 定義要抓取的標的 (補齊原本缺失的部分)
+        // 設定要追蹤的代碼
         const SYMBOLS = {
             macro: ['DX-Y.NYB', '^TNX', 'BTC-USD', 'ETH-USD'],
             indices: ['^GSPC', '^IXIC', '^TWII', '^HSI'],
             stocks: ['NVDA', 'TSM', '2330.TW', 'AAPL']
         };
 
-        // 2. 渲染 UI 的函數 (補齊原本缺失的部分)
         function renderUI(data) {
             const macroBox = document.getElementById('macro-liquidity');
             const indexBox = document.getElementById('market-indices');
             const stockBox = document.getElementById('watched-stocks');
 
-            macroBox.innerHTML = '';
-            indexBox.innerHTML = '';
-            stockBox.innerHTML = '';
+            macroBox.innerHTML = ''; indexBox.innerHTML = ''; stockBox.innerHTML = '';
 
             data.forEach(item => {
-                const colorClass = item.regularMarketChange >= 0 ? 'price-up' : 'price-down';
-                const sign = item.regularMarketChange >= 0 ? '▲' : '▼';
+                const price = item.regularMarketPrice ? item.regularMarketPrice.toLocaleString() : 'N/A';
+                const change = item.regularMarketChangePercent ? item.regularMarketChangePercent.toFixed(2) : '0.00';
+                const color = item.regularMarketChange >= 0 ? 'price-up' : 'price-down';
+                const sign = item.regularMarketChange >= 0 ? '+' : '';
                 
-                const content = `
-                    <div class="flex justify-between items-center py-2 border-b border-slate-700 last:border-0">
-                        <span class="font-bold text-sm">${item.symbol.replace('^','')}</span>
+                const listHtml = `
+                    <div class="flex justify-between items-center py-1 border-b border-slate-700 last:border-0">
+                        <span class="font-bold text-sm text-slate-300">${item.symbol.replace('^','')}</span>
                         <div class="text-right">
-                            <span class="font-mono font-bold ${colorClass}">${item.regularMarketPrice.toLocaleString()}</span>
-                            <span class="text-xs ml-2 ${colorClass}">${sign}${Math.abs(item.regularMarketChangePercent).toFixed(2)}%</span>
+                            <span class="font-mono font-bold ${color}">${price}</span>
+                            <span class="text-[10px] ml-1 ${color}">${sign}${change}%</span>
                         </div>
-                    </div>
-                `;
+                    </div>`;
 
-                if (SYMBOLS.macro.includes(item.symbol)) {
-                    macroBox.innerHTML += content;
-                } else if (SYMBOLS.indices.includes(item.symbol)) {
-                    indexBox.innerHTML += content;
-                } else if (SYMBOLS.stocks.includes(item.symbol)) {
+                if (SYMBOLS.macro.includes(item.symbol)) macroBox.innerHTML += listHtml;
+                else if (SYMBOLS.indices.includes(item.symbol)) indexBox.innerHTML += listHtml;
+                else if (SYMBOLS.stocks.includes(item.symbol)) {
                     stockBox.innerHTML += `
-                        <div class="card">
-                            <div class="flex justify-between">
-                                <span class="text-lg font-black">${item.symbol}</span>
-                                <span class="${colorClass} font-bold">${item.regularMarketChangePercent.toFixed(2)}%</span>
+                        <div class="card mb-0">
+                            <div class="flex justify-between items-start">
+                                <span class="font-black text-lg">${item.symbol}</span>
+                                <span class="${color} font-bold text-sm">${sign}${change}%</span>
                             </div>
-                            <div class="text-2xl font-mono mt-1">${item.regularMarketPrice}</div>
-                            <div class="text-[10px] text-slate-500 truncate">${item.shortName}</div>
-                        </div>
-                    `;
+                            <div class="text-2xl font-mono font-bold mt-1">${price}</div>
+                            <div class="text-[10px] text-slate-500 truncate">${item.shortName || ''}</div>
+                        </div>`;
                 }
             });
         }
 
-        // 3. 核心抓取邏輯 (整合代理與備援)
         async function fetchData() {
-            try {
-                const allSymbols = [...SYMBOLS.macro, ...SYMBOLS.indices, ...SYMBOLS.stocks].join(',');
-                const targetUrl = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${allSymbols}`;
-                const finalUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-
-                const res = await fetch(finalUrl);
-                if (!res.ok) throw new Error('Primary API failed');
-                const json = await res.json();
-                
-                if (json.quoteResponse && json.quoteResponse.result) {
-                    renderUI(json.quoteResponse.result);
-                    document.getElementById('timestamp').innerHTML = `最後更新：${new Date().toLocaleTimeString()}`;
-                }
-            } catch (error) {
-                console.error('抓取失敗:', error);
-                document.getElementById('timestamp').innerHTML = '數據獲取中，請稍候...';
-                setTimeout(fetchDataWithBackup, 2000);
-            }
-        }
-
-        async function fetchDataWithBackup() {
             const allSymbols = [...SYMBOLS.macro, ...SYMBOLS.indices, ...SYMBOLS.stocks].join(',');
-            const targetUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${allSymbols}`;
-            const backupUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+            const targetUrl = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${allSymbols}`;
+            // 透過代理伺服器繞過 CORS 限制
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
 
             try {
-                const res = await fetch(backupUrl);
+                const res = await fetch(proxyUrl);
+                if (!res.ok) throw new Error();
                 const json = await res.json();
-                const actualData = JSON.parse(json.contents);
-                renderUI(actualData.quoteResponse.result);
-                document.getElementById('timestamp').innerHTML = `最後更新：${new Date().toLocaleTimeString()} (備用)`;
+                renderUI(json.quoteResponse.result);
+                document.getElementById('timestamp').innerHTML = '更新時間: ' + new Date().toLocaleTimeString();
             } catch (e) {
-                document.getElementById('timestamp').innerHTML = '目前連線不穩定';
+                document.getElementById('timestamp').innerHTML = '嘗試重新連線中...';
+                // 備用代理
+                const backupRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
+                const backupJson = await backupRes.json();
+                renderUI(JSON.parse(backupJson.contents).quoteResponse.result);
             }
         }
 
-        // 4. 啟動程序
-        fetchData(); // 頁面載入後立即執行一次
-        setInterval(fetchData, 60000); // 每一分鐘自動更新一次
+        fetchData();
+        setInterval(fetchData, 60000);
     </script>
 </body>
 </html>
