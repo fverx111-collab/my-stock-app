@@ -2,95 +2,115 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FLOWTRACK Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FLOWTRACK 核心監控</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
-        body { background-color: #0f172a; color: #f8fafc; font-family: sans-serif; }
+        body { background-color: #0f172a; color: #f8fafc; font-family: sans-serif; overflow-x: hidden; }
         .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-        .up { color: #10b981; }
-        .down { color: #f43f5e; }
-        .status-bar { font-size: 10px; padding: 2px 8px; border-radius: 99px; background: #334155; }
+        .up { color: #10b981; font-weight: bold; }
+        .down { color: #f43f5e; font-weight: bold; }
+        .status-pill { font-size: 10px; padding: 2px 8px; border-radius: 99px; background: #334155; }
     </style>
 </head>
 <body>
-    <header class="p-4 border-b border-slate-800 flex justify-between items-center">
+    <header class="p-4 border-b border-slate-800 flex justify-between items-center sticky top-0 bg-slate-900 z-50">
         <h1 class="text-xl font-black italic text-green-400">FLOWTRACK</h1>
-        <div id="conn-status" class="status-bar">初始化數據中...</div>
+        <div id="status" class="status-pill text-slate-400">連線初始化...</div>
     </header>
 
-    <main class="p-4 max-w-lg mx-auto">
-        <div class="mb-6">
-            <h2 class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-widest">Macro / Indices</h2>
-            <div id="list-container" class="card space-y-3">載入中...</div>
-        </div>
+    <main class="p-4 max-w-lg mx-auto pb-20">
+        <section class="mb-6">
+            <h2 class="text-[10px] font-bold text-slate-500 mb-3 uppercase tracking-[0.2em]">Global Indices & Macro</h2>
+            <div id="indices-list" class="card space-y-4">數據載入中...</div>
+        </section>
 
-        <div>
-            <h2 class="text-xs font-bold text-slate-500 mb-2 uppercase tracking-widest">Watched Stocks</h2>
-            <div id="stock-container" class="grid grid-cols-1 gap-3">載入中...</div>
-        </div>
+        <section>
+            <h2 class="text-[10px] font-bold text-slate-500 mb-3 uppercase tracking-[0.2em]">Focus Stocks</h2>
+            <div id="stocks-list" class="grid grid-cols-1 gap-3">數據載入中...</div>
+        </section>
+        
+        <div id="last-update" class="text-center text-[10px] text-slate-600 mt-6"></div>
     </main>
 
     <script>
+        // 你的核心追蹤清單
         const SYMBOLS = ['DX-Y.NYB', '^TNX', 'BTC-USD', '^GSPC', '^TWII', 'NVDA', 'TSM', '2330.TW'];
 
-        function render(data) {
-            const list = document.getElementById('list-container');
-            const stocks = document.getElementById('stock-container');
-            list.innerHTML = ''; stocks.innerHTML = '';
+        function renderData(result) {
+            const indicesEl = document.getElementById('indices-list');
+            const stocksEl = document.getElementById('stocks-list');
+            indicesEl.innerHTML = ''; stocksEl.innerHTML = '';
 
-            data.forEach(item => {
-                const price = item.regularMarketPrice?.toLocaleString() || '---';
-                const change = item.regularMarketChangePercent?.toFixed(2) || '0.00';
+            result.forEach(item => {
+                const price = item.regularMarketPrice ? item.regularMarketPrice.toLocaleString(undefined, {minimumFractionDigits: 2}) : '---';
+                const pct = item.regularMarketChangePercent ? item.regularMarketChangePercent.toFixed(2) : '0.00';
                 const isUp = item.regularMarketChange >= 0;
                 const color = isUp ? 'up' : 'down';
-                
-                const html = `
+                const sign = isUp ? '+' : '';
+
+                const rowHtml = `
                     <div class="flex justify-between items-center">
-                        <span class="font-bold">${item.symbol.replace('^','')}</span>
-                        <div class="text-right font-mono">
-                            <span class="${color} font-bold">${price}</span>
-                            <span class="text-[10px] ml-1 ${color}">${isUp?'+':''}${change}%</span>
+                        <span class="text-sm font-bold text-slate-200">${item.symbol.replace('^','')}</span>
+                        <div class="text-right">
+                            <span class="${color} font-mono">${price}</span>
+                            <span class="text-[10px] ml-2 ${color} opacity-80">${sign}${pct}%</span>
                         </div>
                     </div>`;
 
                 if (item.symbol.includes('^') || item.symbol.includes('DX-Y') || item.symbol.includes('USD')) {
-                    list.innerHTML += html;
+                    indicesEl.innerHTML += rowHtml;
                 } else {
-                    stocks.innerHTML += `<div class="card mb-0">${html}<div class="text-[9px] text-slate-500 mt-1">${item.shortName || ''}</div></div>`;
+                    stocksEl.innerHTML += `
+                        <div class="card mb-0 bg-slate-800/40">
+                            <div class="flex justify-between items-center">
+                                <span class="font-black text-white">${item.symbol}</span>
+                                <span class="${color} text-sm">${sign}${pct}%</span>
+                            </div>
+                            <div class="text-2xl font-mono mt-1">${price}</div>
+                        </div>`;
                 }
             });
+            document.getElementById('last-update').innerText = '最後更新：' + new Date().toLocaleTimeString();
         }
 
-        async function update() {
-            const status = document.getElementById('conn-status');
-            status.innerText = '同步中...';
+        // 強大的三重備援抓取機制
+        async function smartFetch() {
+            const statusEl = document.getElementById('status');
+            const symbolsStr = SYMBOLS.join(',');
+            const target = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbolsStr}`;
             
-            // 使用特定的跨域中轉介面
-            const api = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${SYMBOLS.join(',')}`;
-            const url = `https://api.allorigins.win/get?url=${encodeURIComponent(api)}&_=${Date.now()}`;
-
+            // 嘗試路徑 1: AllOrigins (最推薦)
             try {
-                const res = await fetch(url);
+                statusEl.innerText = '正在嘗試通道 A...';
+                const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(target)}&_=${Date.now()}`);
                 const json = await res.json();
-                const result = JSON.parse(json.contents).quoteResponse.result;
-                
-                if (result && result.length > 0) {
-                    render(result);
-                    status.innerText = '● 已連線';
-                    status.style.color = '#10b981';
-                } else {
-                    throw new Error();
-                }
-            } catch (e) {
-                status.innerText = '重試連線中...';
-                status.style.color = '#f43f5e';
-                setTimeout(update, 5000); // 失敗後5秒自動重試
-            }
+                const data = JSON.parse(json.contents).quoteResponse.result;
+                if (data && data.length > 0) { renderData(data); statusEl.innerText = '● 已連線'; return; }
+            } catch (e) {}
+
+            // 嘗試路徑 2: Corsproxy.io
+            try {
+                statusEl.innerText = '通道 A 忙碌，切換 B...';
+                const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(target)}`);
+                const json = await res.json();
+                if (json.quoteResponse.result) { renderData(json.quoteResponse.result); statusEl.innerText = '● 已連線 (B)'; return; }
+            } catch (e) {}
+
+            // 嘗試路徑 3: ThingProxy
+            try {
+                statusEl.innerText = '通道 B 忙碌，切換 C...';
+                const res = await fetch(`https://thingproxy.freeboard.io/fetch/${target}`);
+                const json = await res.json();
+                if (json.quoteResponse.result) { renderData(json.quoteResponse.result); statusEl.innerText = '● 已連線 (C)'; return; }
+            } catch (e) {}
+
+            statusEl.innerText = '⚠️ 訊號微弱，重連中...';
+            setTimeout(smartFetch, 5000);
         }
 
-        update();
-        setInterval(update, 60000); // 每分鐘更新
+        smartFetch();
+        setInterval(smartFetch, 60000);
     </script>
 </body>
 </html>
