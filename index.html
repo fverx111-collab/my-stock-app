@@ -3,78 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FLOWTRACK PRO</title>
+    <title>FLOWTRACK 終極版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #0f172a; color: #f8fafc; }
-        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 12px; }
+        body { background-color: #0f172a; color: #f8fafc; font-family: sans-serif; }
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+        .up { color: #10b981; } .down { color: #f43f5e; }
     </style>
 </head>
 <body class="p-4">
     <div class="max-w-md mx-auto">
-        <div class="flex justify-between items-center mb-6">
+        <header class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-black italic text-green-400">FLOWTRACK</h1>
-            <div id="status" class="text-[10px] px-2 py-1 rounded bg-slate-800 text-slate-500">初始化偵錯模式...</div>
-        </div>
+            <div id="status" class="text-[10px] px-2 py-1 rounded bg-slate-800 text-slate-500">穩定性測試中...</div>
+        </header>
 
-        <div id="display" class="space-y-3">
-            <div class="text-center p-10 text-slate-500">正在嘗試穿透防火牆...</div>
-        </div>
-
-        <div id="debug-log" class="mt-8 p-3 bg-black/50 rounded text-[10px] font-mono text-red-400 border border-red-900/30 hidden">
-            <div class="text-white mb-1 uppercase">偵錯訊息 (請截圖給我):</div>
-            <div id="log-content"></div>
-        </div>
+        <div id="indices" class="card space-y-4 text-slate-500 text-center italic">建立 Google 專用通道中...</div>
+        <div id="stocks" class="space-y-3"></div>
+        
+        <div id="debug" class="mt-6 p-3 bg-red-900/20 text-red-400 text-[10px] font-mono rounded hidden"></div>
     </div>
 
     <script>
-        function log(msg) {
-            const el = document.getElementById('debug-log');
-            const content = document.getElementById('log-content');
-            el.style.display = 'block';
-            content.innerText += `> ${msg}\n`;
-        }
+        const SYMBOLS = ['DX-Y.NYB', '^TNX', 'BTC-USD', '^GSPC', '^TWII', 'NVDA', 'TSM', '2330.TW'];
 
         async function update() {
             const status = document.getElementById('status');
-            const display = document.getElementById('display');
-            const symbols = ['DX-Y.NYB', '^TNX', 'BTC-USD', 'NVDA', '2330.TW'];
+            const debug = document.getElementById('debug');
             
-            // 使用「跨域穿透力最強」的 Google 轉發引擎
-            const target = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(',')}`;
-            const url = `https://api.allorigins.win/get?url=${encodeURIComponent(target)}&_=${Date.now()}`;
+            // 改用更強大的代理中轉，避開之前失效的 AllOrigins
+            const target = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${SYMBOLS.join(',')}`;
+            const proxy = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`;
 
             try {
-                log("發送請求中...");
-                const response = await fetch(url);
-                log(`伺服器回應狀態: ${response.status}`);
-                
-                const json = await response.json();
-                const data = JSON.parse(json.contents).quoteResponse.result;
+                const res = await fetch(proxy);
+                if (!res.ok) throw new Error(`HTTP 錯誤: ${res.status}`);
+                const data = await res.json();
+                const results = data.quoteResponse.result;
 
-                if (data && data.length > 0) {
-                    display.innerHTML = '';
-                    data.forEach(item => {
-                        const isUp = item.regularMarketChange >= 0;
-                        const color = isUp ? 'text-green-400' : 'text-red-400';
-                        display.innerHTML += `
-                            <div class="card flex justify-between items-center">
-                                <span class="font-bold">${item.symbol}</span>
-                                <div class="text-right">
-                                    <div class="${color} font-mono font-bold">${item.regularMarketPrice.toLocaleString()}</div>
-                                    <div class="${color} text-[10px]">${isUp?'+':''}${item.regularMarketChangePercent.toFixed(2)}%</div>
-                                </div>
-                            </div>`;
-                    });
-                    status.innerText = "● 連線正常";
-                    status.classList.replace('text-slate-500', 'text-green-400');
-                    log("數據渲染完成");
+                if (results) {
+                    render(results);
+                    status.innerText = "● Google 通道已連線";
+                    status.className = "text-[10px] px-2 py-1 rounded bg-green-900/30 text-green-400";
                 }
             } catch (e) {
-                log(`錯誤詳情: ${e.message}`);
-                status.innerText = "⚠️ 數據源被阻斷";
-                status.classList.replace('text-slate-500', 'text-red-500');
+                console.error(e);
+                debug.style.display = 'block';
+                debug.innerText = "連線失敗：" + e.message + " (請確認 4G 收訊)";
             }
+        }
+
+        function render(data) {
+            const indicesEl = document.getElementById('indices');
+            const stocksEl = document.getElementById('stocks');
+            indicesEl.innerHTML = ''; stocksEl.innerHTML = '';
+
+            data.forEach(item => {
+                const price = item.regularMarketPrice?.toLocaleString() || '---';
+                const change = item.regularMarketChangePercent?.toFixed(2) || '0.00';
+                const color = item.regularMarketChange >= 0 ? 'up' : 'down';
+                const html = `
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold">${item.symbol.replace('^','')}</span>
+                        <div class="text-right font-mono">
+                            <span class="${color} font-bold">${price}</span>
+                            <span class="text-[10px] ml-1 ${color}">${change}%</span>
+                        </div>
+                    </div>`;
+
+                if (item.symbol.match(/\^|DX-Y|USD/)) indicesEl.innerHTML += html;
+                else stocksEl.innerHTML += `<div class="card bg-slate-800/40">${html}</div>`;
+            });
         }
 
         update();
